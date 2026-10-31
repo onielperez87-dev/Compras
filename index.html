@@ -1,0 +1,188 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0F1317"><link rel="manifest" href="manifest.json"><link rel="icon" href="icon-192.png"><title>Compras</title>
+<style>
+:root{--bg:#171A1E;--lat:#0F1317;--pan:#22272D;--inp:#2B323A;--bor:#36404A;--tx:#E6EAEF;--mu:#949EA8;--ac:#3B82F6;--ok:#22C55E;--no:#EF4444;--am:#F59E0B}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px system-ui,sans-serif;padding-bottom:70px}
+header{position:sticky;top:0;z-index:5;background:var(--lat);padding:12px 14px;padding-top:calc(12px + env(safe-area-inset-top));font-weight:700;font-size:17px;border-bottom:2px solid var(--ac)}
+main{padding:12px;max-width:780px;margin:auto}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;overflow-x:auto;background:var(--lat);padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{flex:1 0 auto;min-width:80px;background:none;border:0;color:var(--mu);padding:13px 6px;font-size:12px}nav button.on{color:#fff;background:var(--ac)}
+label{display:block;font-size:12px;color:var(--mu);margin:9px 0 3px}
+input,select{width:100%;padding:10px;background:var(--inp);border:1px solid var(--bor);border-radius:8px;color:var(--tx);font-size:16px}
+input:disabled,select:disabled{opacity:.5}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}
+.b{padding:12px 14px;border:0;border-radius:8px;background:var(--pan);color:var(--tx);font-size:15px;font-weight:600;margin:10px 8px 0 0}
+.pri{background:var(--ac)}.ok{background:var(--ok);color:#052e12}.w{width:100%;margin-right:0}
+h2{margin:4px 0;font-size:19px}.mu{color:var(--mu);font-size:13px}.am{color:var(--am);font-weight:600;font-size:13px;margin-top:8px}
+.tot{font-size:26px;font-weight:700;color:var(--ok);text-align:right;margin:8px 0}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:10px 0}
+.card{background:var(--pan);border-radius:8px;padding:10px;border-left:4px solid var(--ac)}.card small{color:var(--mu);font-size:11px}.card div{font-size:19px;font-weight:700;margin-top:3px}
+.sc{overflow-x:auto;margin-top:8px;border:1px solid var(--bor);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px}th{background:var(--lat);text-align:left;position:sticky;top:0}
+th,td{padding:7px 9px;white-space:nowrap;border-bottom:1px solid var(--bor)}td.n,th.n{text-align:right}tr.t td{font-weight:700;background:var(--pan)}tr[data-a]{cursor:pointer}
+.pk{position:relative}.pk ul{position:absolute;left:0;right:0;z-index:4;margin:2px 0;padding:0;list-style:none;max-height:240px;overflow:auto;background:var(--pan);border:1px solid var(--bor);border-radius:8px}
+.pk li{padding:11px}.pk li:active{background:var(--ac)}
+#md{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;z-index:9;padding:20px}
+#md div{background:var(--pan);border-radius:12px;padding:18px;max-width:420px;width:100%;white-space:pre-wrap}
+#pa{display:none}
+@media print{body>*:not(#pa){display:none!important}#pa{display:block;color:#000;background:#fff}#pa table{font-size:11px}#pa th,#pa td{border:1px solid #888;color:#000;background:#fff}}
+</style></head><body>
+<header id="ttl"></header><main id="m"></main><nav id="nv"></nav><div id="md"><div></div></div><div id="pa"></div>
+<script>
+const $=s=>document.querySelector(s),M='$',esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let DB;const EMPTY=()=>({prod:[],com:[],tra:[],alm:[],caj:[],fer:[],cfg:{v:1,t:1,fondo:30000,limF:5000,limM:5000}});
+const idb=new Promise(r=>{try{const q=indexedDB.open('compras',1);q.onupgradeneeded=()=>q.result.createObjectStore('kv');q.onsuccess=()=>r(q.result);q.onerror=()=>r(null)}catch(e){r(null)}});
+async function load(){const d=await idb;if(d)DB=await new Promise(r=>{const q=d.transaction('kv').objectStore('kv').get('db');q.onsuccess=()=>r(q.result);q.onerror=()=>r()});
+ if(!DB){try{DB=JSON.parse(localStorage.getItem('db'))}catch(e){}}DB=Object.assign(EMPTY(),DB||{});DB.cfg=Object.assign(EMPTY().cfg,DB.cfg)}
+async function save(){const d=await idb;if(d)d.transaction('kv','readwrite').objectStore('kv').put(JSON.parse(JSON.stringify(DB)),'db');else localStorage.setItem('db',JSON.stringify(DB))}
+/* ===== utilidades ===== */
+const p2=n=>String(n).padStart(2,'0'),today=()=>{const d=new Date();return d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate())},hm=()=>{const d=new Date();return p2(d.getHours())+':'+p2(d.getMinutes())};
+const dn=s=>{const[a,b,c]=s.split('-').map(Number);return Date.UTC(a,b-1,c)/864e5},ds=n=>new Date(n*864e5).toISOString().slice(0,10);
+const r2=x=>Math.round((x+Number.EPSILON)*100)/100,num=s=>{s=String(s??'').trim().replace(',','.');if(!s||isNaN(s))return null;return +s};
+const f$=x=>(+x||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fc=x=>{x=+x||0;return Math.abs(x-Math.round(x))<1e-6?Math.round(x).toLocaleString('en-US'):x.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:3})};
+const FU={kg:[1,'kg'],g:[.001,'kg'],lb:[.45359237,'kg'],oz:[.028349523,'kg'],qq:[45.359237,'kg'],docena:[12,'U']};
+const fac=u=>FU[String(u).trim().toLowerCase()]||[1,'U'],unis=b=>b=='kg'?['kg','lb','oz','g','qq']:['U','Docena'];
+const prod=c=>DB.prod.find(p=>p.cod.toLowerCase()==String(c).toLowerCase());
+const sum=(a,c,k)=>a.reduce((s,r)=>s+(r.cod.toLowerCase()==c.toLowerCase()?r[k]:0),0);
+function datos(c){const p=prod(c);if(!p)return;const co=sum(DB.com,c,'qb'),t=sum(DB.tra,c,'qb');return{...p,ex:p.ini+co-t,c:co,t}}
+function exist(f,modo){f=(f||'').toLowerCase().trim();const C={},T={};DB.com.forEach(r=>C[r.cod.toLowerCase()]=(C[r.cod.toLowerCase()]||0)+r.qb);DB.tra.forEach(r=>T[r.cod.toLowerCase()]=(T[r.cod.toLowerCase()]||0)+r.qb);
+ return DB.prod.filter(p=>(!f||(p.cod+' '+p.nom).toLowerCase().includes(f))&&(!modo||(modo==1&&p.uni=='kg')||(modo==2&&p.uni=='U'))).map(p=>{const k=p.cod.toLowerCase(),c=C[k]||0,t=T[k]||0,ex=p.ini+c-t;return[p.cod,p.nom,p.uni,p.pre,ex,r2(ex*p.pre),p.ini,c,t]})}
+/* ===== caja ===== */
+const ENT=t=>t=='Fondo inicial'||t=='Extracción del banco';
+function acum(d1,nd){const ing=Array(nd).fill(0),gas=[...ing],dep=[...ing];let prev=0;
+ for(const r of DB.caj){const d=dn(r.fecha),m=+r.monto||0;if(d<d1){if(ENT(r.tipo))prev+=m;else if(r.tipo=='Depósito al banco')prev-=m}else if(d<d1+nd){const k=d-d1;if(ENT(r.tipo))ing[k]+=m;else if(r.tipo=='Depósito al banco')dep[k]+=m}}
+ for(const r of DB.com)if(r.pago=='Efectivo'){const d=dn(r.fecha);if(d<d1)prev-=r.saldo;else if(d<d1+nd)gas[d-d1]+=r.saldo}
+ return{prev,ing,gas,dep}}
+function banco(){let s=0;for(const r of DB.caj){const m=+r.monto||0;if(r.tipo=='Saldo inicial banco'||r.tipo=='Depósito al banco')s+=m;else if(r.tipo=='Extracción del banco')s-=m}return s}
+function estado(d){const a=acum(d,1),meta=DB.cfg.fondo,fondo=a.prev+a.ing[0],caja=fondo-a.gas[0]-a.dep[0];let disp=Math.min(meta-a.gas[0],caja);if(disp<0)disp=0;return{meta,prev:a.prev,ing:a.ing[0],fondo,gas:a.gas[0],dep:a.dep[0],caja,disp,falta:Math.max(meta-fondo,0),banco:banco()}}
+/* ===== feriados y calendario ===== */
+function pascua(y){const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),t=h+l-7*m+114;return Date.UTC(y,Math.floor(t/31)-1,t%31+1)/864e5}
+const FJ={'0101':'Triunfo de la Revolución','0102':'Día de la Victoria','0501':'Día Internacional de los Trabajadores','0725':'Víspera de la Rebeldía Nacional','0726':'Día de la Rebeldía Nacional','1010':'Inicio de las guerras de independencia','1225':'Navidad','1231':'Fin de año'};
+function fijo(n){const d=new Date(n*864e5);return FJ[p2(d.getUTCMonth()+1)+p2(d.getUTCDate())]||(n==pascua(d.getUTCFullYear())-2?'Viernes Santo':'')}
+const wd=n=>(new Date(n*864e5).getUTCDay()+6)%7+1;
+function nomFer(n,ex){let s=fijo(n)||ex[ds(n)]||'';if(!s&&wd(n)==1){const p=fijo(n-1);if(p)s='Traslado: '+p}return s}
+const extras=()=>{const o={};DB.fer.forEach(f=>o[f.fecha]=f.desc||'Feriado');return o};
+function calMes(an,mes){const nd=new Date(Date.UTC(an,mes,0)).getUTCDate(),ex=extras(),hoy=dn(today()),vc=Array(nd+1).fill(0),mt=Array(nd+1).fill(0),vd=new Set(),all=new Set(),DIAS=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+ for(const r of DB.com){const[y,m,d]=r.fecha.split('-').map(Number);if(y==an&&m==mes){if(!vd.has(d+'|'+r.vale)){vd.add(d+'|'+r.vale);vc[d]++}all.add(r.vale);mt[d]+=r.saldo}}
+ let lab=0,fer=0,dom=0,pen=0,trab=0,notr=0,extra=0,mtot=0;const res=[];
+ for(let i=1;i<=nd;i++){const n=Date.UTC(an,mes-1,i)/864e5,w=wd(n),nm=nomFer(n,ex);let tipo,est;
+  if(w==7){tipo=nm?'Domingo ('+nm+')':'Domingo';dom++}else if(nm){tipo='Feriado: '+nm;fer++}else{tipo='Laborable';lab++}
+  if(vc[i]){est='Trabajado';trab++;if(tipo!='Laborable')extra++}else if(tipo!='Laborable')est='Descanso';else if(n<hoy){est='No trabajado';notr++}else{est='Pendiente';pen++}
+  res.push([ds(n),DIAS[w-1],tipo,vc[i],mt[i],est]);mtot+=mt[i]}
+ res.push(['TOTAL','','',all.size,mtot,'']);return{r:[lab,fer,dom,pen,trab,notr,all.size,extra,mtot],det:res}}
+/* ===== informes ===== */
+const NI=['Compras por fecha','Compras por mes','Compras por producto','Compras por unidad','Compras por tipo de compra','Compras por día y tipo de compra','Compras por mes y tipo de compra','Detalle de vales','Transferencias por fecha','Transferencias por número','Transferencias por producto','Transferencias por almacén','Detalle de transferencias','Caja por día (efectivo)','Movimientos de caja y banco'];
+const srt=o=>Object.keys(o).sort((a,b)=>a.localeCompare(b,'es',{sensitivity:'base'}));
+function informe(id,d1,d2){const inR=r=>{const d=dn(r.fecha);return d>=d1&&d<=d2};let rows=[],cab,fm;
+ if(id<=6){cab=['Grupo','Vales','Kg','U','Efec. móvil','Transf.','Total móvil','Efec. fija','Total efectivo','TOTAL'];fm='tcccmmmmmm';const g={},all=new Set();
+  for(const r of DB.com.filter(inR)){const lab=r.tipo=='Fija'?'Fija':'Móvil-'+r.pago,k=[r.fecha,r.fecha.slice(0,7),r.cod+' - '+r.nom,r.uni,lab,r.fecha+' · '+lab,r.fecha.slice(0,7)+' · '+lab][id],a=g[k]=g[k]||{v:new Set(),kg:0,u:0,em:0,tr:0,ef:0};
+   a.v.add(r.vale);all.add(r.vale);if(r.ub=='kg')a.kg+=r.qb;else a.u+=r.qb;if(lab=='Fija')a.ef+=r.saldo;else if(r.pago=='Transferencia')a.tr+=r.saldo;else a.em+=r.saldo}
+  rows=srt(g).map(k=>{const a=g[k];return[k,a.v.size,a.kg,a.u,a.em,a.tr,a.em+a.tr,a.ef,a.em+a.ef,a.em+a.tr+a.ef]});
+  if(rows.length){const t=['TOTAL',all.size];for(let c=2;c<10;c++)t.push(rows.reduce((s,r)=>s+r[c],0));rows.push(t)}}
+ else if(id==7){cab=['Vale','Fecha','Tipo','Pago','Producto','Un.','Cant.','Precio','Saldo'];fm='tfttttcmm';rows=DB.com.filter(inR).map(r=>[String(r.vale),r.fecha,r.tipo,r.pago,r.nom,r.uni,r.cant,r.pre,r.saldo]);if(rows.length)rows.push(['TOTAL','','','','','','','',rows.reduce((s,r)=>s+r[8],0)])}
+ else if(id<=11){cab=['Grupo','Transf.','Kg','U','Monto'];fm='tcccm';const g={},all=new Set();
+  for(const r of DB.tra.filter(inR)){const k=[r.fecha,String(r.num).padStart(6,'0')+' · '+r.fecha+' · '+r.alm,r.cod+' - '+r.nom,r.alm][id-8],a=g[k]=g[k]||{v:new Set(),kg:0,u:0,m:0};a.v.add(r.num);all.add(r.num);if(r.ub=='kg')a.kg+=r.qb;else a.u+=r.qb;a.m+=r.imp}
+  rows=srt(g).map(k=>[k,g[k].v.size,g[k].kg,g[k].u,g[k].m]);if(rows.length){const t=['TOTAL',all.size];for(let c=2;c<5;c++)t.push(rows.reduce((s,r)=>s+r[c],0));rows.push(t)}}
+ else if(id==12){cab=['Nº','Fecha','Almacén','Producto','Un.','Cant.','Precio','Importe'];fm='tftttcmm';rows=DB.tra.filter(inR).map(r=>[String(r.num),r.fecha,r.alm,r.nom,r.uni,r.cant,r.pre,r.imp]);if(rows.length)rows.push(['TOTAL','','','','','','',rows.reduce((s,r)=>s+r[7],0)])}
+ else if(id==13){cab=['Fecha','Apertura','Ingresos','Gasto efectivo','Depósitos','Cierre','Falta p/ fondo'];fm='tmmmmmm';const nd=d2-d1+1;if(nd>0){const a=acum(d1,nd);let carry=a.prev,tI=0,tG=0,tD=0;
+  for(let k=0;k<nd;k++){if(a.ing[k]||a.gas[k]||a.dep[k]){const cie=carry+a.ing[k]-a.gas[k]-a.dep[k];rows.push([ds(d1+k),carry,a.ing[k],a.gas[k],a.dep[k],cie,Math.max(DB.cfg.fondo-cie,0)]);tI+=a.ing[k];tG+=a.gas[k];tD+=a.dep[k]}carry+=a.ing[k]-a.gas[k]-a.dep[k]}
+  if(rows.length)rows.push(['TOTAL','',tI,tG,tD,carry,Math.max(DB.cfg.fondo-carry,0)])}}
+ else{cab=['Fecha','Hora','Tipo','Monto','Nota'];fm='tttmt';let neto=0;rows=DB.caj.filter(inR).map(r=>{const m=+r.monto||0;if(ENT(r.tipo))neto+=m;else if(r.tipo=='Depósito al banco')neto-=m;return[r.fecha,r.hora,r.tipo,m,r.nota||'']});if(rows.length)rows.push(['NETO CAJA','','',neto,''])}
+ return{cab,fm,rows}}
+/* ===== UI: componentes ===== */
+const cell=(v,f)=>v===''||v==null?'':f=='c'?fc(v):f=='m'?f$(v):esc(v);
+function tbl(cab,rows,fm,o={}){return`<div class=sc><table><tr>${cab.map((c,i)=>`<th class="${'cm'.includes(fm[i])?'n':''}">${esc(c)}</th>`).join('')}</tr>${rows.map((r,ri)=>`<tr ${o.last&&ri==rows.length-1?'class=t':''} ${o.at?o.at(r):''}>${r.map((v,i)=>`<td class="${'cm'.includes(fm[i])?'n':''}">${cell(v,fm[i])}</td>`).join('')}</tr>`).join('')}</table></div>`}
+const card=(l,v,c)=>`<div class=card style="border-color:var(--${c||'ac'})"><small>${l}</small><div>${v}</div></div>`;
+const ask=(m,yn)=>new Promise(r=>{const b=$('#md');b.firstElementChild.innerHTML=esc(m)+`<p>${yn?'<button class="b ok" id=y>Sí</button><button class=b id=n>No</button>':'<button class="b pri" id=y>Aceptar</button>'}</p>`;b.style.display='flex';b.querySelector('#y').onclick=()=>{b.style.display='none';r(true)};if(yn)b.querySelector('#n').onclick=()=>{b.style.display='none';r(false)}});
+const aviso=m=>ask(m,false);
+function pick(id,cb){const i=$('#'+id),l=$('#'+id+'l');const show=()=>{const f=i.value.toLowerCase().trim(),a=DB.prod.map(p=>p.cod+' - '+p.nom).filter(s=>!f||s.toLowerCase().includes(f)).slice(0,60);l.innerHTML=a.map(s=>`<li data-s="${esc(s)}">${esc(s)}</li>`).join('');l.hidden=!a.length};
+ const sel=s=>{i.value=s;l.hidden=true;cb(s.split(' - ')[0],s)};
+ i.oninput=()=>{if(DB.prod.some(p=>p.cod+' - '+p.nom==i.value))return sel(i.value);cb('',i.value);show()};i.onfocus=show;
+ i.onkeydown=e=>{if(e.key=='Enter'&&l.firstElementChild)sel(l.firstElementChild.dataset.s)};l.onpointerdown=e=>{const li=e.target.closest('li');if(li){e.preventDefault();sel(li.dataset.s)}};i.onblur=()=>setTimeout(()=>l.hidden=true,150)}
+const pkH=(id,t)=>`<label>${t}</label><div class=pk><input id=${id} autocomplete=off placeholder="Nombre o código"><ul id=${id}l hidden></ul></div>`;
+function prn(t,cab,rows,fm){$('#pa').innerHTML=`<h2>${esc(t)}</h2><p>Generado: ${today()} ${hm()}</p>`+tbl(cab,rows,fm,{last:1});window.print()}
+const opts=a=>a.map(x=>`<option>${esc(x)}</option>`).join('');
+/* ===== páginas ===== */
+const PG=[['Compra',pCompra],['Productos',pProd],['Transferir',pTra],['Inventario',pInv],['Informes',pInf],['Caja y banco',pCaja],['Calendario',pCal],['Respaldo',pResp]];let cur=0;
+function go(n){cur=n;$('#nv').innerHTML=PG.map((p,i)=>`<button data-a=nav data-i=${i} class="${i==n?'on':''}">${p[0]}</button>`).join('');$('#ttl').textContent=PG[n][0];PG[n][1]();scrollTo(0,0)}
+/* 1 compra */
+let car=[],selC='';const sl=l=>r2(l.cant*fac(l.uni)[0]*l.pre),tc=()=>car.reduce((s,l)=>s+sl(l),0);
+function pCompra(){$('#m').innerHTML=`<div class=g><div><label>Nº de vale</label><input id=cv inputmode=numeric value="${DB.cfg.v}"></div><div><label>Tipo</label><select id=ct><option>Fija<option>Móvil</select></div><div><label>Pago</label><select id=cp><option>Efectivo<option>Transferencia</select></div></div>${pkH('cx','Producto')}<div class=g><div><label>Unidad</label><select id=cu></select></div><div><label>Cantidad</label><input id=cq inputmode=decimal value=1></div></div><div class=am id=ci>Precio: -   Existencia: -</div><button class="b pri w" data-a=addc>Agregar al vale</button><div id=cart></div><div class=tot id=ctot></div><button class=b data-a=clrc>Vaciar vale</button><button class="b ok w" data-a=okc>CONFIRMAR COMPRA</button><div class=am id=cinf></div>`;
+ pick('cx',c=>{selC=c;$('#cu').innerHTML='';$('#ci').textContent='Precio: -   Existencia: -';const d=c&&datos(c);if(d){$('#ci').textContent=`Precio: ${M} ${f$(d.pre)} / ${d.uni}   Existencia: ${fc(d.ex)} ${d.uni}`;$('#cu').innerHTML=opts(unis(d.uni))}});
+ $('#ct').onchange=()=>{const f=$('#ct').value=='Fija';if(f)$('#cp').value='Efectivo';$('#cp').disabled=f;cinf()};$('#cp').onchange=cinf;rcar();cinf()}
+function cinf(){const t=$('#ct').value,p=$('#cp').value;if(t!='Fija'&&p!='Efectivo'){$('#cinf').textContent='Pago por transferencia: sin límite por vale y sin usar el efectivo de caja.';return}const e=estado(dn(today())),l=t=='Fija'?DB.cfg.limF:DB.cfg.limM;$('#cinf').textContent=`Límite por vale: ${l>0?M+' '+f$(l):'sin límite'}   Disponible hoy: ${M} ${f$(e.disp)}   Caja: ${M} ${f$(e.caja)}`}
+function rcar(){$('#cart').innerHTML=car.length?tbl(['','Producto','Un.','Cant.','Precio','Saldo'],car.map((l,i)=>['@@'+i,l.nom,l.uni,l.cant,l.pre,sl(l)]),'tttcmm').replace(/@@(\d+)/g,'<b data-a=delc data-i=$1 style="color:var(--no);padding:6px">✕</b>'):'';$('#ctot').textContent=M+' '+f$(tc())}
+function vale(tot,tipo,pago){if(tipo=='Fija')pago='Efectivo';if(pago!='Efectivo')return'';const lim=tipo=='Fija'?DB.cfg.limF:DB.cfg.limM;
+ if(lim>0&&tot>lim+.004)return`El vale (${M} ${f$(tot)}) supera el límite por vale de las compras ${tipo=='Fija'?'fijas':'móviles'} en efectivo: ${M} ${f$(lim)}.\nPuedes cambiarlo en 'Caja y banco'.`;
+ const e=estado(dn(today()));return tot>e.disp+.004?`Efectivo insuficiente para hoy.\n\nVale: ${M} ${f$(tot)}\nDisponible hoy: ${M} ${f$(e.disp)}\n(Fondo diario ${M} ${f$(e.meta)} | Gastado hoy ${M} ${f$(e.gas)} | Caja ${M} ${f$(e.caja)})\n\nRegistra el fondo o una extracción del banco en 'Caja y banco'.`:''}
+async function addC(){const q=num($('#cq').value),u=$('#cu').value;if(!selC)return aviso('Selecciona un producto de la lista.');if(!q||q<=0)return aviso('La cantidad no es válida.');if(!u)return aviso('Selecciona la unidad.');
+ const d=datos(selC),t=$('#ct').value,p=$('#cp').value,m=vale(tc()+r2(q*fac(u)[0]*d.pre),t,p);if(m)return aviso(m);
+ const l=car.find(x=>x.cod.toLowerCase()==selC.toLowerCase()&&x.uni.toLowerCase()==u.toLowerCase());if(l)l.cant+=q;else car.push({cod:d.cod,nom:d.nom,uni:u,cant:q,pre:d.pre});selC='';pCompraKeep()}
+function pCompraKeep(){const v=$('#cv').value,t=$('#ct').value,p=$('#cp').value;pCompra();$('#cv').value=v;$('#ct').value=t;$('#cp').value=p;$('#cp').disabled=t=='Fija';cinf()}
+async function okC(){if(!car.length)return aviso('Agrega al menos un producto al vale.');const nv=num($('#cv').value);if(!nv||nv<1||nv!=Math.floor(nv))return aviso('El número de vale no es válido.');if(DB.com.some(r=>r.vale==nv))return aviso(`El vale Nº ${nv} ya existe. Escribe otro número.`);
+ const t=$('#ct').value,p=t=='Fija'?'Efectivo':$('#cp').value,tot=tc(),m=vale(tot,t,p);if(m)return aviso(m);if(!await ask(`Vale Nº ${nv}  (${t} / ${p})\nTotal: ${M} ${f$(tot)}\n\n¿Confirmar la compra?`,1))return;
+ const f=today(),h=hm();car.forEach(l=>{const[fa,ub]=fac(l.uni),qb=l.cant*fa;DB.com.push({vale:nv,fecha:f,hora:h,tipo:t,pago:p,cod:l.cod,nom:l.nom,uni:l.uni,cant:l.cant,qb,ub,pre:l.pre,saldo:r2(qb*l.pre)})});DB.cfg.v=nv+1;await save();car=[];await aviso(`Compra registrada.\nVale Nº ${nv}\nTotal: ${M} ${f$(tot)}`);pCompra()}
+/* 2 productos */
+function pProd(){$('#m').innerHTML=`${pkH('bx','Buscar producto')}<div id=det class=am></div><div id=pl></div><h2 style="margin-top:14px">Nuevo producto / editar</h2><p class=mu>Toca un producto de la lista para editarlo.</p><div class=g><div><label>Código</label><input id=pc></div><div><label>Nombre</label><input id=pn></div><div><label>Unidad</label><select id=pu><option>kg<option>U</select></div><div><label>Precio de compra</label><input id=pp inputmode=decimal></div><div><label>Stock inicial</label><input id=pi inputmode=decimal></div></div><button class="b ok" data-a=savp>Guardar producto</button><button class=b data-a=clrp>Limpiar</button>`;
+ pick('bx',(c,t)=>{$('#det').textContent='';if(c)det(c);lp(c||t)});lp('')}
+const lp=f=>{$('#pl').innerHTML=tbl(['Código','Producto','Un.','Precio','Existencia','Valor'],exist(f,0).map(r=>r.slice(0,6)),'tttmcm',{at:r=>`data-a=edp data-c="${esc(r[0])}"`})};
+function det(c){const d=datos(c);$('#det').textContent=d?`${d.nom} — ${M} ${f$(d.pre)}/${d.uni} — Existencia: ${fc(d.ex)} ${d.uni} (comprado ${fc(d.c)}, transferido ${fc(d.t)})`:''}
+async function savP(){const cod=$('#pc').value.trim(),nom=$('#pn').value.trim(),uni=$('#pu').value,pre=num($('#pp').value);if(!cod||!nom)return aviso('Indica el código y el nombre del producto.');if(cod.includes(' - '))return aviso("El código no puede contener ' - '.");if(pre==null||pre<0)return aviso('El precio no es válido.');
+ let ini=-1;if($('#pi').value.trim()){ini=num($('#pi').value);if(ini==null||ini<0)return aviso('El stock inicial no es válido.')}
+ const ex=prod(cod);if(ex){const d=datos(cod);if(d.uni!=uni&&(d.c>0||d.t>0))return aviso('No se puede cambiar la unidad de un producto que ya tiene compras o transferencias.');if(!await ask('Ya existe un producto con ese código.\n¿Deseas actualizarlo?',1))return;Object.assign(ex,{nom,uni,pre,ini:ini<0?ex.ini:ini})}else DB.prod.push({cod,nom,uni,pre,ini:ini<0?0:ini});
+ await save();await aviso(`Producto ${ex?'actualizado':'creado'}: ${nom}`);pProd()}
+/* 3 transferir */
+let tcar=[],selT='';const il=l=>r2(l.cant*fac(l.uni)[0]*l.pre),baseT=c=>tcar.reduce((s,l)=>s+(l.cod.toLowerCase()==c.toLowerCase()?l.cant*fac(l.uni)[0]:0),0);
+function pTra(keep){const v=keep||{};$('#m').innerHTML=`<div class=g><div><label>Nº de registro</label><input id=tn inputmode=numeric value="${v.n||DB.cfg.t}"></div><div><label>Almacén destino</label><select id=ta>${opts(DB.alm)}</select></div></div><div class=g><div><label>Nuevo almacén</label><input id=tw></div><div><button class=b data-a=newa style="margin-top:28px">Crear almacén</button></div></div>${pkH('tx','Producto')}<div class=g><div><label>Unidad</label><select id=tu></select></div><div><label>Cantidad</label><input id=tq inputmode=decimal></div></div><div class=am id=ti>Existencia: -</div><button class="b pri w" data-a=addt>Añadir a la transferencia</button><div id=tcr></div><div class=tot id=ttot></div><button class=b data-a=clrt>Vaciar</button><button class="b ok w" data-a=okt>REGISTRAR TRANSFERENCIA</button><h2 style="margin-top:16px">Últimas transferencias</h2><div id=tul></div>`;
+ if(v.a)$('#ta').value=v.a;pick('tx',c=>{selT=c;$('#tu').innerHTML='';$('#ti').textContent='Existencia: -';const d=c&&datos(c);if(d){$('#ti').textContent=`Existencia: ${fc(d.ex)} ${d.uni}`;$('#tu').innerHTML=opts(unis(d.uni))}});
+ $('#tcr').innerHTML=tcar.length?tbl(['','Producto','Un.','Cant.','Importe'],tcar.map((l,i)=>[`@@${i}`,l.nom,l.uni,l.cant,il(l)]),'tttcm').replace(/@@(\d+)/g,'<b data-a=delt data-i=$1 style="color:var(--no);padding:6px">✕</b>'):'';$('#ttot').textContent=M+' '+f$(tcar.reduce((s,l)=>s+il(l),0));
+ $('#tul').innerHTML=tbl(['Nº','Fecha','Almacén','Producto','Un.','Cant.','Importe'],DB.tra.slice(-15).reverse().map(r=>[String(r.num),r.fecha,r.alm,r.nom,r.uni,r.cant,r.imp]),'tftttcm')}
+const keepT=()=>({n:$('#tn').value,a:$('#ta').value});
+async function addT(){const a=$('#ta').value,q=num($('#tq').value),u=$('#tu').value;if(!a)return aviso('Crea o selecciona un almacén de destino.');if(!selT)return aviso('Selecciona un producto de la lista.');if(!q||q<=0)return aviso('La cantidad no es válida.');if(!u)return aviso('Selecciona la unidad.');
+ const d=datos(selT),ya=baseT(selT);if(q*fac(u)[0]+ya>d.ex+1e-6)return aviso(`Existencia insuficiente.\nDisponible: ${fc(d.ex)} ${d.uni}   En esta transferencia: ${fc(ya)} ${d.uni}`);
+ const l=tcar.find(x=>x.cod.toLowerCase()==selT.toLowerCase()&&x.uni.toLowerCase()==u.toLowerCase());if(l)l.cant+=q;else tcar.push({cod:d.cod,nom:d.nom,uni:u,cant:q,pre:d.pre});selT='';pTra(keepT())}
+async function okT(){const a=$('#ta').value,n=num($('#tn').value);if(!a)return aviso('Crea o selecciona un almacén de destino.');if(!tcar.length)return aviso('Añade al menos un producto a la transferencia.');if(!n||n<1||n!=Math.floor(n))return aviso('El Nº de registro no es válido.');if(DB.tra.some(r=>r.num==n))return aviso(`La transferencia Nº ${n} ya existe. Escribe otro número.`);
+ for(const l of tcar){const d=datos(l.cod);if(!d)return aviso(`El producto ${l.cod} ya no existe.`);if(baseT(l.cod)>d.ex+1e-6)return aviso(`Existencia insuficiente de ${d.nom}.\nDisponible: ${fc(d.ex)} ${d.uni}`)}
+ const tot=tcar.reduce((s,l)=>s+il(l),0);if(!await ask(`Transferencia Nº ${n}\nDestino: ${a}\nProductos: ${tcar.length}\nImporte: ${M} ${f$(tot)}\n\n¿Registrar la transferencia?`,1))return;
+ const f=today(),h=hm();tcar.forEach(l=>{const[fa,ub]=fac(l.uni),qb=l.cant*fa;DB.tra.push({num:n,fecha:f,hora:h,alm:a,cod:l.cod,nom:l.nom,uni:l.uni,cant:l.cant,qb,ub,pre:l.pre,imp:r2(qb*l.pre)})});DB.cfg.t=n+1;await save();tcar=[];await aviso(`Transferencia Nº ${n} registrada.`);pTra()}
+/* 4 inventario */
+function pInv(){$('#m').innerHTML=`<div class=g><select id=im><option value=0>Todos<option value=1>Solo kg<option value=2>Solo U</select><button class="b pri" style="margin:0" data-a=pinv>Exportar a PDF</button></div><div class=cards id=ik></div><div id=it></div>`;$('#im').onchange=ri;ri()}
+function ri(){const v=exist('',+$('#im').value);let kg=0,un=0,vl=0;v.forEach(r=>{if(r[2]=='kg')kg+=r[4];else un+=r[4];vl+=r[5]});$('#ik').innerHTML=card('EXISTENCIA EN KG',fc(kg)+' kg')+card('EXISTENCIA EN UNIDADES',fc(un)+' U')+card('VALOR DEL ALMACÉN',M+' '+f$(vl),'ok');$('#it').innerHTML=tbl(['Código','Producto','Un.','Precio','Existencia','Valor','Inicial','Compras','Transf.'],v,'tttmcmccc')}
+/* 5 informes */
+let infR;function pInf(){const d=new Date(),a=today();$('#m').innerHTML=`<label>Informe</label><select id=fi>${NI.map((n,i)=>`<option value=${i}>${n}`).join('')}</select><div class=g><div><label>Desde</label><input type=date id=fd value="${a.slice(0,8)}01"></div><div><label>Hasta</label><input type=date id=fh value="${a}"></div></div><button class="b pri" data-a=ginf>Generar</button><button class=b data-a=pinf>Exportar a PDF</button><div id=fr></div><div class=tot id=ft style="font-size:15px"></div>`}
+function gInf(){const a=$('#fd').value,b=$('#fh').value;if(!a||!b)return aviso('Escribe fechas válidas.'),0;const d1=dn(a),d2=dn(b);if(d2<d1)return aviso('La fecha final no puede ser menor que la inicial.'),0;const id=+$('#fi').value,r=informe(id,d1,d2);infR={...r,t:NI[id]+` (${a} a ${b})`};
+ if(!r.rows.length){$('#fr').innerHTML='';$('#ft').textContent='Sin registros en el período seleccionado.';return 1}$('#fr').innerHTML=tbl(r.cab,r.rows,r.fm,{last:1});const n=r.rows.length,L=r.rows[n-1];
+ $('#ft').textContent=id==13?`Días: ${n-1}   Ingresos: ${f$(L[2])}   Gastado: ${f$(L[3])}   Depósitos: ${f$(L[4])}   Caja al cierre: ${f$(L[5])}`:id==14?`Movimientos: ${n-1}   Neto en caja: ${M} ${f$(L[3])}`:`Filas: ${n-1}   TOTAL: ${M} ${f$(L[L.length-1])}`;return 1}
+/* 6 caja */
+function pCaja(){const c=DB.cfg,e=estado(dn(today()));$('#m').innerHTML=`<div class=g><div><label>Fondo diario en efectivo</label><input id=kf inputmode=decimal value="${c.fondo}"></div><div><label>Límite vale Fija</label><input id=kl inputmode=decimal value="${c.limF}"></div><div><label>Límite vale Móvil</label><input id=km inputmode=decimal value="${c.limM}"></div></div><p class=mu>0 = sin límite</p><button class="b pri" data-a=savk style="margin-top:0">Guardar</button><div class=cards>${card('CAJA ACTUAL (EFECTIVO)',M+' '+f$(e.caja),'ok')+card('GASTADO HOY EN EFECTIVO',M+' '+f$(e.gas),'am')+card('DISPONIBLE PARA GASTAR HOY',M+' '+f$(e.disp))+card('FONDO DEL DÍA',M+' '+f$(e.fondo))+card('POR EXTRAER DEL BANCO',M+' '+f$(e.falta),'am')+card('SALDO EN BANCO',M+' '+f$(e.banco),'ok')}</div><h2>Registrar movimiento</h2><div class=g><div><label>Tipo</label><select id=kt>${opts(['Fondo inicial','Extracción del banco','Depósito al banco','Saldo inicial banco'])}</select></div><div><label>Monto</label><input id=ko inputmode=decimal></div><div><label>Nota (opcional)</label><input id=kn></div></div><button class="b ok" data-a=regk>Registrar</button><h2 style="margin-top:14px">Últimos movimientos</h2>${tbl(['Fecha','Hora','Tipo','Monto','Nota'],DB.caj.slice(-20).reverse().map(r=>[r.fecha,r.hora,r.tipo,r.monto,r.nota||'']),'tttmt')}`}
+async function savK(){const a=num($('#kf').value),b=num($('#kl').value),c=num($('#km').value);if(a==null||a<0)return aviso('El fondo diario no es válido.');if(b==null||b<0)return aviso('El límite de vale Fija no es válido.');if(c==null||c<0)return aviso('El límite de vale Móvil no es válido.');Object.assign(DB.cfg,{fondo:a,limF:b,limM:c});await save();await aviso('Configuración guardada.');pCaja()}
+async function regK(){const t=$('#kt').value,m=num($('#ko').value),e=estado(dn(today()));if(!m||m<=0)return aviso('El monto no es válido.');
+ if(t=='Depósito al banco'&&m>e.caja+.004)return aviso(`No puedes depositar más de lo que hay en caja (${M} ${f$(e.caja)}).`);
+ if(t=='Extracción del banco'&&m>e.banco+.004&&!await ask(`El monto supera el saldo registrado en banco (${M} ${f$(e.banco)}).\n¿Registrar de todos modos?`,1))return;
+ if(ENT(t)&&e.fondo+m>e.meta+.004&&!await ask(`Con este monto el fondo del día (${M} ${f$(e.fondo+m)}) superará el fondo diario (${M} ${f$(e.meta)}).\nSolo podrás gastar el fondo diario por día.\n¿Registrar de todos modos?`,1))return;
+ DB.caj.push({fecha:today(),hora:hm(),tipo:t,monto:m,nota:$('#kn').value});await save();pCaja()}
+/* 7 calendario */
+const MES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];let calR;
+function pCal(){const d=new Date();$('#m').innerHTML=`<p class=mu>Lunes a sábado, sin feriados cubanos. Cada vale es un cliente atendido.</p><div class=g><div><label>Año</label><input id=ya inputmode=numeric value=${d.getFullYear()}></div><div><label>Mes</label><select id=ym>${MES.map((m,i)=>`<option value=${i+1} ${i==d.getMonth()?'selected':''}>${m}`).join('')}</select></div></div><button class="b pri" data-a=gcal>Calcular</button><button class=b data-a=pcal>Exportar a PDF</button><div class=g><div><label>Feriado extra</label><input type=date id=yf></div><div><button class=b data-a=addf style="margin-top:28px">Añadir feriado</button></div></div><div id=yr></div>`;gCal()}
+function gCal(){const a=num($('#ya').value),m=+$('#ym').value;if(!a||a<2000||a>2100||a!=Math.floor(a))return aviso('Escribe un año válido (2000 a 2100).'),0;const{r,det}=calMes(a,m);calR={t:`Calendario laboral - ${MES[m-1]} ${a}`,det};
+ $('#yr').innerHTML=`<div class=cards>${card('DÍAS LABORABLES (L-S)',r[0])+card('FERIADOS EN L-S',r[1],'am')+card('VALES (CLIENTES)',r[6],'ok')+card('DÍAS TRABAJADOS',r[4],'ok')+card('DÍAS NO TRABAJADOS',r[5],'no')+card('CLIENTES POR DÍA',r[4]?(r[6]/r[4]).toFixed(1):'-')}</div><p class=mu>Domingos: ${r[2]}   Laborables pendientes: ${r[3]}   Trabajados en domingo/feriado: ${r[7]}   Monto del mes: ${M} ${f$(r[8])}</p>`+tbl(['Fecha','Día','Tipo de día','Vales','Monto','Estado'],det,'tttcmt',{last:1});return 1}
+async function addF(){const f=$('#yf').value;if(!f)return aviso('Escribe una fecha válida.');if(nomFer(dn(f),extras()))return aviso('Esa fecha ya es feriado.');DB.fer.push({fecha:f,desc:'Feriado agregado'});await save();await aviso('Feriado agregado: '+f);gCal()}
+/* 8 respaldo */
+async function pResp(){const n=DB.com.length+DB.tra.length+DB.caj.length;$('#m').innerHTML=`<p>Tus datos se guardan <b>solo en este teléfono</b> (${DB.prod.length} productos, ${DB.com.length} líneas de compra, ${DB.tra.length} de transferencias, ${DB.caj.length} movimientos de caja). Funciona sin internet.</p><p class=mu>Si borras los datos del navegador o desinstalas la app, se pierden. Haz un respaldo de vez en cuando y guárdalo (Drive, WhatsApp, correo).</p><button class="b pri w" data-a=exp>Descargar respaldo (.json)</button><label>Restaurar desde un respaldo</label><input type=file id=rf accept=".json,application/json"><p class=am id=ps></p>`;
+ $('#rf').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.prod)||!Array.isArray(d.com))throw 0;if(!await ask('Esto reemplaza TODOS los datos actuales por los del respaldo.\n¿Continuar?',1))return;DB=Object.assign(EMPTY(),d);await save();await aviso('Respaldo restaurado.');pResp()}catch(x){aviso('El archivo no es un respaldo válido.')}};
+ try{const ok=navigator.storage&&await navigator.storage.persisted();$('#ps').textContent=ok?'Almacenamiento protegido: el navegador no borrará tus datos automáticamente.':'Instala la app (menú ⋮ → Añadir a pantalla de inicio) para que el navegador proteja tus datos.'}catch(x){}}
+function exp(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(DB)],{type:'application/json'}));a.download='respaldo-compras-'+today()+'.json';a.click()}
+/* ===== acciones ===== */
+const A={nav:e=>go(+e.dataset.i),addc:addC,okc:okC,clrc:async()=>{if(car.length&&await ask('¿Vaciar todos los productos del vale actual?',1)){car=[];pCompraKeep()}},delc:e=>{car.splice(+e.dataset.i,1);pCompraKeep()},
+ edp:e=>{const d=datos(e.dataset.c);if(!d)return;det(d.cod);$('#pc').value=d.cod;$('#pn').value=d.nom;$('#pu').value=d.uni;$('#pp').value=d.pre;$('#pi').value=d.ini;$('#pc').scrollIntoView()},savp:savP,clrp:()=>['pc','pn','pp','pi'].forEach(i=>$('#'+i).value=''),
+ newa:async()=>{const n=$('#tw').value.trim();if(!n)return aviso('Escribe el nombre del almacén.');if(DB.alm.some(a=>a.toLowerCase()==n.toLowerCase()))return aviso('Ese almacén ya existe.');DB.alm.push(n);await save();const k=keepT();k.a=n;pTra(k)},
+ addt:addT,delt:e=>{const k=keepT();tcar.splice(+e.dataset.i,1);pTra(k)},clrt:async()=>{if(tcar.length&&await ask('¿Vaciar la transferencia actual?',1)){const k=keepT();tcar=[];pTra(k)}},okt:okT,
+ pinv:()=>{const v=exist('',+$('#im').value);v.length?prn('Inventario - '+today(),['Código','Producto','Un.','Precio','Existencia','Valor','Inicial','Compras','Transf.'],v,'tttmcmccc'):aviso('No hay productos para exportar.')},
+ ginf:gInf,pinf:()=>{if(gInf()){infR.rows.length?prn(infR.t,infR.cab,infR.rows,infR.fm):aviso('No hay datos para exportar en ese período.')}},
+ savk:savK,regk:regK,gcal:gCal,pcal:()=>{if(gCal())prn(calR.t,['Fecha','Día','Tipo de día','Vales','Monto','Estado'],calR.det,'tttcmt')},addf:addF,exp};
+document.addEventListener('click',e=>{const t=e.target.closest('[data-a]');if(t&&A[t.dataset.a])A[t.dataset.a](t)});
+load().then(()=>{go(0);try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}});
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js');
+</script></body></html>
